@@ -1,0 +1,6 @@
+tuple=(1,3,4,2,5,4,2,2)
+# print (tuple[:3])
+# print(tuple.index(4))
+# print(type(tuple))
+# print(tuple.count(2))
+print(tuple.index(5))

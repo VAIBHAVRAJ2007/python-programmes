@@ -1,84 +1,145 @@
-import json
-library = []
+import tkinter as tk
+from tkinter import messagebox
+import sqlite3
 
+# ---------------- DATABASE ----------------
+conn = sqlite3.connect("library.db")
+cursor = conn.cursor()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS books (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT UNIQUE,
+    issued INTEGER DEFAULT 0
+)
+""")
+conn.commit()
+
+# ---------------- FUNCTIONS ----------------
 def add_book():
-    title = input("Enter book title: ")
-    library.append({"title": title, "issued": False})
-    print("Book added")
+    title = title_entry.get()
 
-def show_books():
-    if not library:
-        print("No books available")
-    else:
-        print("\nLibrary Books:")
-        for i, book in enumerate(library):
-            status = "Issued" if book["issued"] else "Available"
-            print(f"{i+1}. {book['title']} - {status}")
+    if title == "":
+        messagebox.showerror("Error", "Enter book title")
+        return
+
+    try:
+        cursor.execute("INSERT INTO books (title) VALUES (?)", (title,))
+        conn.commit()
+        messagebox.showinfo("Success", "Book added")
+        clear_fields()
+        view_books()
+    except:
+        messagebox.showerror("Error", "Book already exists")
+
+
+def view_books():
+    listbox.delete(0, tk.END)
+    cursor.execute("SELECT * FROM books")
+    rows = cursor.fetchall()
+
+    for row in rows:
+        status = "Issued" if row[2] else "Available"
+        listbox.insert(tk.END, f"{row[0]} | {row[1]} - {status}")
+
 
 def issue_book():
-    show_books()
-    try:
-        index = int(input("Enter book number to issue: ")) - 1
-        if 0 <= index < len(library):
-            if not library[index]["issued"]:
-                library[index]["issued"] = True
-                print("Book issued")
-            else:
-                print("Book already issued")
-        else:
-            print("Invalid choice")
-    except:
-        print("Enter valid number")
+    selected = listbox.get(tk.ACTIVE)
+
+    if not selected:
+        messagebox.showerror("Error", "Select a book")
+        return
+
+    book_id = selected.split("|")[0].strip()
+
+    cursor.execute("SELECT issued FROM books WHERE id=?", (book_id,))
+    issued = cursor.fetchone()[0]
+
+    if issued:
+        messagebox.showinfo("Info", "Already issued")
+    else:
+        cursor.execute("UPDATE books SET issued=1 WHERE id=?", (book_id,))
+        conn.commit()
+        view_books()
+
 
 def return_book():
-    show_books()
-    try:
-        index = int(input("Enter book number to return: ")) - 1
-        if 0 <= index < len(library):
-            if library[index]["issued"]:
-                library[index]["issued"] = False
-                print("Book returned")
-            else:
-                print("Book was not issued")
-        else:
-            print("Invalid choice")
-    except:
-        print("Enter valid number")
+    selected = listbox.get(tk.ACTIVE)
 
-def save_data():
-    with open("library.json", "w") as file:
-        json.dump(library, file)
+    if not selected:
+        messagebox.showerror("Error", "Select a book")
+        return
 
-def load_data():
-    try:
-        with open("library.json", "r") as file:
-            data = json.load(file)
-        library.extend(data)
-    except:
-        pass
+    book_id = selected.split("|")[0].strip()
 
-# Load existing data
-load_data()
+    cursor.execute("SELECT issued FROM books WHERE id=?", (book_id,))
+    issued = cursor.fetchone()[0]
 
-# Menu loop
-while True:
-    print("\n1. Add Book")
-    print("2. View Books")
-    print("3. Issue Book")
-    print("4. Return Book")
-    print("5. Exit")
-    choice = input("Enter choice: ")
-    if choice == "1":
-        add_book()
-    elif choice == "2":
-        show_books()
-    elif choice == "3":
-        issue_book()
-    elif choice == "4":
-        return_book()
-    elif choice == "5":
-        save_data()
-        print("Data saved. Exiting...")
-        break
+    if not issued:
+        messagebox.showinfo("Info", "Not issued")
     else:
-        print("Invalid choice")
+        cursor.execute("UPDATE books SET issued=0 WHERE id=?", (book_id,))
+        conn.commit()
+        view_books()
+
+
+def delete_book():
+    selected = listbox.get(tk.ACTIVE)
+
+    if not selected:
+        messagebox.showerror("Error", "Select a book")
+        return
+
+    book_id = selected.split("|")[0].strip()
+
+    cursor.execute("DELETE FROM books WHERE id=?", (book_id,))
+    conn.commit()
+
+    messagebox.showinfo("Deleted", "Book removed")
+    view_books()
+
+
+def search_book():
+    title = title_entry.get()
+    listbox.delete(0, tk.END)
+
+    cursor.execute("SELECT * FROM books WHERE title LIKE ?", ('%' + title + '%',))
+    rows = cursor.fetchall()
+
+    if rows:
+        for row in rows:
+            status = "Issued" if row[2] else "Available"
+            listbox.insert(tk.END, f"{row[0]} | {row[1]} - {status}")
+    else:
+        messagebox.showinfo("Result", "No book found")
+
+
+def clear_fields():
+    title_entry.delete(0, tk.END)
+
+
+# ---------------- GUI ----------------
+root = tk.Tk()
+root.title("Library Management System (SQLite)")
+root.geometry("500x400")
+
+# Labels
+tk.Label(root, text="Book Title").pack()
+title_entry = tk.Entry(root)
+title_entry.pack()
+
+# Buttons
+tk.Button(root, text="Add Book", command=add_book).pack(pady=5)
+tk.Button(root, text="View Books", command=view_books).pack(pady=5)
+tk.Button(root, text="Issue Book", command=issue_book).pack(pady=5)
+tk.Button(root, text="Return Book", command=return_book).pack(pady=5)
+tk.Button(root, text="Search Book", command=search_book).pack(pady=5)
+tk.Button(root, text="Delete Book", command=delete_book).pack(pady=5)
+
+# Listbox
+listbox = tk.Listbox(root, width=50)
+listbox.pack(pady=10)
+
+# Run
+view_books()
+root.mainloop()

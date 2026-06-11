@@ -1,5 +1,6 @@
 {
-    "code-runner.clearPreviousOutput": false,
-    "editor.mouseWheelZoom": true,
-    "code-runner.runInTerminal": true
+  "code-runner.clearPreviousOutput": false,
+  "editor.mouseWheelZoom": true,
+  "code-runner.runInTerminal": true,
+  "python-envs.defaultEnvManager": "ms-python.python:system"
 }
